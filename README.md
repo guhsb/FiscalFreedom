@@ -46,6 +46,19 @@ npm run dev        # abre no navegador (a API pode bloquear por CORS; use o app)
 npm run desktop    # abre o app de PC
 ```
 
+## Ligar e desligar pelo GitHub
+
+O app lê o mesmo `controle.json` dos outros apps Freedom (repositório `guhsb/APPS-FREEDOM`, branch `main`) toda vez que abre, ao voltar para a tela e a cada 15 minutos.
+
+| Para… | Mude no `controle.json` |
+|---|---|
+| Desligar **todos** os apps Freedom | `"bloqueado": true` |
+| Desligar **só o Freedom Fiscal** | `"bloquear": ["fiscal"]` |
+| Obrigar a atualizar | `"versaoMinima": "1.1.0"` (vale para versões abaixo) |
+| Mostrar um recado na tela de bloqueio | `"mensagem": "Manutenção até 14h."` |
+
+Sem internet, vale o último estado lido: se estava desligado, continua desligado.
+
 ## Observações
 
 - A documentação do Tributei não mostra o formato das respostas. O app procura os campos pelo nome (MVA, valor do ICMS-ST, quem recolhe etc.) e sempre mostra a **Resposta completa** no fim de cada tela. Se algum número não aparecer, copie essa resposta e ajuste `src/extrair.js`.

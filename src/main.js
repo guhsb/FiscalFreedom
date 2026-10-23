@@ -3,6 +3,7 @@ import logoUrl from './logo.png';
 import { h, card, rotulo, chip, aviso } from './ui.js';
 import { icone } from './icones.js';
 import { config, chave } from './store.js';
+import { verificar, APP_VERSAO } from './controle.js';
 
 import simulador from './screens/simulador.js';
 import auditoria from './screens/auditoria.js';
@@ -54,7 +55,7 @@ async function inicio() {
       h('div', { class: 'ic', style: { background: `var(--${t.cor}-s)`, color: `var(--${t.cor}-t)` }, html: icone(t.icone) }),
       h('div', {}, h('b', {}, `${i + 1}. ${t.titulo}`), h('span', {}, t.resumo)),
       h('div', { class: 'seta' }, '›')))),
-    h('div', { class: 'rodape' }, 'Freedom Tech · Freedom Fiscal v1.0 · dados do Tributei')
+    h('div', { class: 'rodape' }, `Freedom Tech · Freedom Fiscal v${APP_VERSAO} · dados do Tributei`)
   );
 }
 
@@ -72,6 +73,37 @@ async function rota() {
   catch (e) { corpo.replaceChildren(aviso('Erro ao abrir a tela: ' + e.message, 'erro')); console.error(e); }
 }
 
-window.addEventListener('hashchange', rota);
+// ---------- Controle remoto (controle.json no GitHub) ----------
+let bloqueio = null;
+
+function telaBloqueio(b) {
+  app.className = '';
+  app.replaceChildren(
+    h('div', { class: 'bloqueio' },
+      h('div', { class: 'logo grande-logo' }, h('img', { src: logoUrl, alt: 'Freedom' })),
+      h('div', { class: 'bloqueio-ic' }, b.atualizar ? '↑' : '⏻'),
+      h('h1', {}, b.titulo),
+      h('p', {}, b.texto),
+      h('button', { class: 'botao', type: 'button', onclick: checarControle }, 'Tentar de novo'),
+      h('div', { class: 'muted' }, `Freedom Fiscal v${APP_VERSAO}`)));
+}
+
+async function checarControle() {
+  const r = await verificar();
+  const estava = !!bloqueio;
+  bloqueio = r.liberado ? null : r;
+  if (bloqueio) telaBloqueio(bloqueio);
+  else if (estava) rota();
+}
+
+window.addEventListener('hashchange', () => (bloqueio ? telaBloqueio(bloqueio) : rota()));
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', aplicarTema);
-rota();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checarControle(); });
+setInterval(checarControle, 15 * 60 * 1000);
+
+(async () => {
+  aplicarTema();
+  app.replaceChildren(h('div', { class: 'carregando', style: { justifyContent: 'center', paddingTop: '40vh' } }, h('i', { class: 'spin' }), 'Abrindo…'));
+  await checarControle();
+  if (!bloqueio) rota();
+})();
