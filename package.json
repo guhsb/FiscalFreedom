@@ -1,7 +1,7 @@
 {
   "name": "freedom-fiscal",
   "productName": "Freedom Fiscal",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Ferramentas fiscais da Freedom Tech integradas à API do Tributei",
   "author": "Freedom Tech",
   "private": true,
@@ -19,6 +19,9 @@
     "@capacitor/core": "6.2.0",
     "@capacitor/filesystem": "6.0.2",
     "@capacitor/share": "6.0.3",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "pdfjs-dist": "^3.11.174",
     "xlsx": "0.18.5"
   },
   "devDependencies": {
@@ -31,10 +34,29 @@
   "build": {
     "appId": "br.com.cbfreedom.fiscal",
     "productName": "Freedom Fiscal",
-    "directories": { "output": "release", "buildResources": "build" },
-    "files": ["dist/**", "electron/**", "package.json"],
-    "win": { "target": ["nsis", "portable"], "icon": "build/icon.png" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "shortcutName": "Freedom Fiscal" },
-    "portable": { "artifactName": "FreedomFiscal-portatil-${version}.exe" }
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Freedom Fiscal"
+    },
+    "portable": {
+      "artifactName": "FreedomFiscal-portatil-${version}.exe"
+    }
   }
 }

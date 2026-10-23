@@ -1,10 +1,13 @@
 // Base das telas 4 (notas de saída) e 5 (notas de entrada).
-import { h, card, rotulo, chip, botao, aviso, carregando, mostrarErro, jsonBruto, tabela, tabelaAuto, moeda, dataCurta, lerArquivo, exportarXlsx, carimbo, toast } from '../ui.js';
+import { h, card, rotulo, chip, botao, aviso, carregando, mostrarErro, jsonBruto, tabela, tabelaAuto, moeda, pctFmt, dataCurta, lerArquivo, exportarXlsx, carimbo, toast } from '../ui.js';
 import { api } from '../api.js';
 import { config, dados } from '../store.js';
 import { categoriaPorNcm, FILIAIS } from '../data.js';
 import { lerNfe } from '../xml.js';
-import { listas } from '../extrair.js';
+import { listas, linhasSimulacao, temStFornecedor } from '../extrair.js';
+import { tem } from '../acessos.js';
+import { fmtNcm, fmtCest } from '../data.js';
+import { calcularSt } from '../calc.js';
 
 // Conferência local de uma nota de saída (sem internet)
 export function conferirSaida(nfe) {
@@ -115,20 +118,72 @@ export function telaNotas({ id, titulo, subtitulo, resumo, icone, cor, base, con
             { titulo: 'MVA', num: true, valor: (i) => i.mva ? i.mva.toLocaleString('pt-BR') + '%' : '—' }, { titulo: 'BC ST', num: true, valor: (i) => i.bcSt ? moeda(i.bcSt) : '—' }, { titulo: 'ICMS-ST', num: true, valor: (i) => i.vSt ? moeda(i.vSt) : '—' }
           ], nfe.itens),
           h('div', { class: 'acoes' },
-            botao('Calcular no Tributei', () => calcular(n), 'secundario'),
-            botao('Salvar no Tributei', () => salvarNoTributei(n), 'secundario')),
+            tem(base === 'saidas' ? 'calculoSaida' : 'calculoEntrada') === false ? null : botao('Calcular XML no Tributei', () => calcular(n), 'secundario'),
+            botao('Conferir item a item (simulação rápida)', () => simularItens(n), 'secundario'),
+            tem(base === 'saidas' ? 'calculoSaida' : 'calculoEntrada') === false ? null : botao('Salvar no Tributei', () => salvarNoTributei(n), 'secundario')),
           n.saida);
       }
 
       async function calcular(n) {
+        const recurso = base === 'saidas' ? 'calculoSaida' : 'calculoEntrada';
+        if (tem(recurso) === false) return simularItens(n);
         n.saida.replaceChildren(carregando());
         try {
-          const r = await api.calcularXml(base, n.arquivo, inDifal.checked, n.nfe.destinatario.uf === 'MT' ?{ cliente_atuacao: config.get().regraMT } : {});
+          const r = await api.calcularXml(base, n.arquivo, inDifal.checked, n.nfe.destinatario.uf === 'MT' ? { cliente_atuacao: config.get().regraMT } : {});
           n.resposta = r;
           const ls = listas(r);
           n.saida.replaceChildren(aviso('Cálculo do Tributei recebido (nada foi salvo na sua conta).', 'ok'),
             ls[0] ? tabelaAuto(ls[0].itens) : null, jsonBruto(r));
-        } catch (e) { mostrarErro(n.saida, e); }
+        } catch (e) {
+          if (e.status === 401 || e.status === 403 || e.status === 404) return simularItens(n);
+          mostrarErro(n.saida, e);
+        }
+      }
+
+      // Recalcula cada item da nota pela Simulação rápida (serve para chaves só com o simulador)
+      async function simularItens(n) {
+        const { nfe } = n; const c = config.get();
+        const saidaNota = base === 'saidas';
+        const origem = saidaNota ? (nfe.emitente.uf || c.uf) : nfe.emitente.uf;
+        const destino = saidaNota ? nfe.destinatario.uf : (nfe.destinatario.uf || c.uf);
+        const difal = inDifal.checked || (saidaNota && !nfe.destinatario.contribuinte);
+        const linhas = [];
+        for (const [i, it] of nfe.itens.entries()) {
+          n.saida.replaceChildren(carregando(`Simulação rápida: item ${i + 1} de ${nfe.itens.length}…`));
+          const corpo = {
+            tipoOperacao: saidaNota ? 'venda' : 'compra', tipoCalculo: difal ? 'difal' : 'icmsst',
+            destinatario_simples: '2', simples: '2', estado_emit: [origem], estado_dest: [destino],
+            importado: it.importado, ncm: fmtNcm(it.ncm), cest: fmtCest(it.cest),
+            quantidade: Math.max(1, Math.round(it.qtd) || 1), vUnit: +(it.valor / (Math.max(1, Math.round(it.qtd) || 1))).toFixed(4),
+            vFrete: it.vFrete, vSeg: it.vSeg, IPI: it.vIpi, cOutro: it.vOutro, vDescIC: it.vDesc
+          };
+          if (destino === 'MT' || origem === 'MT') corpo.cliente_atuacao = c.regraMT;
+          const loc = calcularSt({ ncm: it.ncm, origem, destino, importado: it.importado, valores: { vProd: it.valor, vFrete: it.vFrete, vSeg: it.vSeg, IPI: it.vIpi, cOutro: it.vOutro, vDescIC: it.vDesc } });
+          try {
+            const r = await api.simulacao(corpo);
+            const l = linhasSimulacao(r).find(x => x.uf === destino);
+            const esperado = l ? (difal ? (l.difal || 0) : (temStFornecedor(l) ? l.valorSt || 0 : 0)) : NaN;
+            linhas.push({ it, l, loc, esperado, fonte: 'Tributei', bruto: r });
+          } catch (e) {
+            linhas.push({ it, l: null, loc, esperado: difal ? NaN : (loc.st || 0), fonte: 'app', erro: e.message });
+          }
+        }
+        const dif = (x) => isNaN(x.esperado) ? NaN : x.it.vSt - x.esperado;
+        const problemas = linhas.filter(x => Math.abs(dif(x)) > 0.05);
+        n.saida.replaceChildren(
+          aviso(problemas.length ? `${problemas.length} item(ns) com ST diferente do esperado.` : 'Todos os itens batem com a simulação.', problemas.length ? 'erro' : 'ok'),
+          h('p', { class: 'muted' }, `Recalculado item a item pela Simulação rápida (${origem} → ${destino}, ${difal ? 'DIFAL' : 'ICMS-ST'}).`),
+          tabela([
+            { titulo: '#', valor: (x) => x.it.item }, { titulo: 'Produto', valor: (x) => x.it.descricao.slice(0, 30) },
+            { titulo: 'MVA', num: true, valor: (x) => pctFmt(x.l && !isNaN(x.l.mva) ? x.l.mva : x.loc.mvaAjustada) },
+            { titulo: 'Na nota', num: true, valor: (x) => moeda(x.it.vSt) },
+            { titulo: 'Esperado', num: true, valor: (x) => h('b', {}, moeda(x.esperado)) },
+            { titulo: 'Diferença', num: true, valor: (x) => isNaN(dif(x)) ? '—' : (Math.abs(dif(x)) <= 0.05 ? chip('✓ ok', 'mini ok') : chip(moeda(dif(x)), 'mini erro')) },
+            { titulo: 'Quem recolhe', valor: (x) => x.l?.quem || (x.loc.temSt ? 'fornecedor (app)' : '—') },
+            { titulo: 'Fonte', valor: (x) => chip(x.fonte, x.fonte === 'Tributei' ? 'mini azul' : 'mini') }
+          ], linhas, { classeLinha: (x) => Math.abs(dif(x)) > 0.05 ? 'div' : '' }),
+          !saidaNota ? h('p', { class: 'muted' }, 'Se a nota não destacou ST e o esperado é maior que zero, a Freedom recolhe a antecipação/ST na entrada.') : null,
+          jsonBruto(linhas.map(x => x.bruto || { erro: x.erro })));
       }
 
       async function salvarNoTributei(n) {

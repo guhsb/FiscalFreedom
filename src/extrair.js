@@ -48,7 +48,9 @@ const PADROES = {
   valorFcp: [/vfcpst|valorfcp|fcpst|vfcp/],
   quem: [/quemrecolhe|responsavel|recolhimento|recolhe/],
   protocolo: [/protocolo|baselegal|legislacao|convenio/],
-  difal: [/difal|vdifal|valordifal/]
+  difal: [/^(vdifal|valordifal|difal|vicmsufdest|icmsufdest)$/, /valordifal|vdifal|icmsufdest/],
+  total: [/^(valortotal|vtotal|totalprodutos|valortotaldeprodutos|vprod)$/],
+  baseAntes: [/basecalculoantes|baseantesmva|vbc$/]
 };
 
 function pegar(flat, campo) {
@@ -78,12 +80,14 @@ export function linhasSimulacao(resp) {
       uf = typeof uf === 'string' ? uf.trim().toUpperCase() : uf;
       const valorSt = pegar(flat, 'valorSt');
       const mva = pegar(flat, 'mva');
-      if (!UFS.includes(uf) || (valorSt === undefined && mva === undefined)) continue;
+      const difal = pegar(flat, 'difal');
+      if (!UFS.includes(uf) || (valorSt === undefined && mva === undefined && difal === undefined)) continue;
       out.push({
         uf, ncm: pegar(flat, 'ncm'), cest: pegar(flat, 'cest'),
         mva: pct(mva), aliqInterna: pct(pegar(flat, 'aliqInterna')), aliqInter: pct(pegar(flat, 'aliqInter')),
         base: num(pegar(flat, 'base')), valorSt: num(valorSt), valorFcp: num(pegar(flat, 'valorFcp')),
         quem: String(pegar(flat, 'quem') ?? '').toUpperCase(), protocolo: pegar(flat, 'protocolo') ?? '',
+        difal: num(difal), total: num(pegar(flat, 'total')), baseAntes: num(pegar(flat, 'baseAntes')),
         bruto: item
       });
     }

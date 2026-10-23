@@ -2,10 +2,15 @@
 
 App da Freedom Tech para PC (Windows, `.exe`) e celular (Android, `.apk`) integrado à [API do Tributei](https://tributei.readme.io).
 
-## As 7 ferramentas
+## Ferramentas
+
+O app testa sozinho o que a sua chave do Tributei libera (Configurações › Verificar acessos, e automaticamente a cada 7 dias). Ferramentas sem acesso ficam cinza. Com uma chave que só tem a **Simulação rápida**, funcionam: calculadora, simulador, auditoria, preços e a conferência de notas (item a item).
 
 | # | Ferramenta | O que faz | API do Tributei usada |
 |---|---|---|---|
+| ◆ | Margens e orçamentos | Por rede (Rede Sander já cadastrada com 40 itens e 90 lojas; dá para criar outras e importar lojas por CSV). Custo vem do CSV de Produtos do sistema (PRECOCUSTO), fica só no aparelho. Margem líquida = preço − ICMS próprio − custos variáveis (PIS/COFINS, comissão, frete, financeiro, verba, inadimplência…) − custo. Modo fácil com barra "para onde vai o dinheiro", botões mais barato/mais caro e margem alvo. Orçamento em PDF para o cliente (só Qtd, Vlr unit., Vlr total, ICMS-ST e DIFAL quando houver; PR, SP, RS, SC e RJ saem livres por terem filial). O PDF guarda os dados e, jogado de volta, mostra o que mudou e reabre o orçamento | `POST /simulador/pedidos/novo` (opcional, para conferir o ST) |
+| ★ | Calculadora de pedidos | A antiga *Calculadora de ICMS-ST* (consulta_ncm_com_pdf.html) dentro do app: busca no cadastro (2.006 produtos, 266 NCMs), 1 produto ou pedido inteiro (CSV do sistema ou PDF de orçamento), ICMS-ST, FCP-ST, antecipação e DIFAL. Cada cálculo é conferido no Tributei (tabela × Tributei) e a MVA confirmada fica salva e passa na frente das estimativas. Cadastro atualizado por CSV fica salvo no aparelho | `POST /simulador/pedidos/novo` (1 consulta por NCM do pedido) |
+| 0 | Simulação rápida | Todos os campos da API (venda/compra, ST/DIFAL, frete, IPI, descontos, Simples, regra MT, crédito SP), várias UFs de uma vez, cálculo automático, MVA original e aplicada e memória de cálculo. Sem chave ou sem internet, calcula com a tabela de MVA da ficha | `POST /simulador/pedidos/novo` |
 | 1 | Simulador de ICMS-ST | MVA, % de ST e quem recolhe nas 27 UFs para cabos, carregadores, fones e suportes | `POST /simulador/pedidos/novo/lote` (e `/novo`) |
 | 2 | Auditoria do sistema | Compara o CST cadastrado no sistema com o ST do Tributei e lista as divergências | resultado do simulador |
 | 3 | Tabela de preços por UF | Custo + ICMS-ST de cada produto em cada estado; importa a ficha `.xlsx` | resultado do simulador |
@@ -45,6 +50,22 @@ npm install
 npm run dev        # abre no navegador (a API pode bloquear por CORS; use o app)
 npm run desktop    # abre o app de PC
 ```
+
+## Versão web (GitHub Pages)
+
+O mesmo workflow publica o app no GitHub Pages a cada push na `main`. Ative uma vez: **Settings › Pages › Source: GitHub Actions**. O endereço aparece no job "Publicar web".
+- Repositório privado precisa de plano pago do GitHub para ter Pages, e a página publicada fica acessível para quem tiver o link.
+- No navegador o Tributei pode bloquear as chamadas (CORS). Se acontecer, a web usa as tabelas da Freedom e o app de PC/celular continua com o Tributei.
+
+## Produtos e custos embutidos
+
+`tools/embutir-produtos.mjs` gera, a partir do CSV de Produtos do sistema, o cadastro (`src/motor/base-fiscal.json`) e os custos criptografados (`src/redes/custos.enc.json`, AES-GCM com senha). Para atualizar:
+
+```bash
+node tools/embutir-produtos.mjs Produtos.csv "SENHA"
+```
+
+Os custos só abrem no app com a senha (uma vez por aparelho). Nunca vão para o PDF do orçamento.
 
 ## Ligar e desligar pelo GitHub
 

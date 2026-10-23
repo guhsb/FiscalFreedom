@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { config, dados } from '../store.js';
 import { UFS, CATEGORIAS, FILIAIS, soDigitos } from '../data.js';
 import { linhasSimulacao, temStFornecedor } from '../extrair.js';
+import { tem } from '../acessos.js';
 
 const VALOR_BASE = 100; // simula R$ 100 e aplica o percentual em cada produto
 
@@ -36,7 +37,7 @@ export async function simular({ destinos, importado, categorias = CATEGORIAS, ao
   };
 
   let identificou = false;
-  try {
+  if (tem('lote') !== false) try {
     aoProgresso('Enviando lote ao Tributei…');
     const r = await api.simulacaoLote(corpoSimulacao(c, destinos, prods));
     brutos.push({ tipo: 'lote', resposta: r });
@@ -47,7 +48,7 @@ export async function simular({ destinos, importado, categorias = CATEGORIAS, ao
     brutos.push({ tipo: 'lote', erro: e.message });
   }
   if (!identificou) {
-    // uma chamada por NCM (resposta sem NCM não dá para separar no lote)
+    // Simulação rápida: uma chamada por NCM, já com todas as UFs de destino juntas
     for (const [i, p] of prods.entries()) {
       aoProgresso(`Consultando ${p.nome} (${i + 1}/${prods.length})…`);
       const corpo = corpoSimulacao(c, destinos, [p]);

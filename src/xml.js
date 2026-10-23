@@ -21,6 +21,9 @@ export function lerNfe(texto) {
       item: det.getAttribute('nItem'),
       codigo: t(prod, 'cProd'), descricao: t(prod, 'xProd'), ncm: t(prod, 'NCM'), cest: t(prod, 'CEST'),
       cfop: t(prod, 'CFOP'), qtd: n(prod, 'qCom'), valor: n(prod, 'vProd'),
+      vFrete: n(prod, 'vFrete'), vSeg: n(prod, 'vSeg'), vDesc: n(prod, 'vDesc'), vOutro: n(prod, 'vOutro'),
+      // origem 1, 2, 3 e 8 = conteúdo importado (alíquota interestadual de 4%)
+      importado: ['1', '2', '3', '8'].includes(orig),
       orig, cst, cstCompleto: orig + cst,
       bc: n(grupo, 'vBC'), pIcms: n(grupo, 'pICMS'), vIcms: n(grupo, 'vICMS'),
       mva: n(grupo, 'pMVAST'), bcSt: n(grupo, 'vBCST'), pIcmsSt: n(grupo, 'pICMSST'), vSt: n(grupo, 'vICMSST'),

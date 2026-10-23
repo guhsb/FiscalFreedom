@@ -2,9 +2,13 @@ import './style.css';
 import logoUrl from './logo.png';
 import { h, card, rotulo, chip, aviso } from './ui.js';
 import { icone } from './icones.js';
-import { config, chave } from './store.js';
+import { config, chave, dados } from './store.js';
+import { ferramentaLiberada, verificarAcessos, RECURSOS } from './acessos.js';
 import { verificar, APP_VERSAO } from './controle.js';
 
+import calculadora from './screens/calculadora.js';
+import pedidos from './screens/pedidos.js';
+import redesTela from './screens/redes.js';
 import simulador from './screens/simulador.js';
 import auditoria from './screens/auditoria.js';
 import precos from './screens/precos.js';
@@ -14,7 +18,7 @@ import guias from './screens/guias.js';
 import relatorio from './screens/relatorio.js';
 import configuracoes from './screens/config.js';
 
-export const TELAS = [simulador, auditoria, precos, saida, entrada, guias, relatorio];
+export const TELAS = [redesTela, pedidos, calculadora, simulador, auditoria, precos, saida, entrada, guias, relatorio];
 const TODAS = [...TELAS, configuracoes];
 const app = document.getElementById('app');
 
@@ -37,6 +41,8 @@ async function inicio() {
   app.className = '';
   const temChave = !!(await chave.ler());
   const c = config.get();
+  const ac = dados.acessos();
+  const liberados = ac ? RECURSOS.filter(r => ac.r[r.id]?.ok === true).length : null;
   app.replaceChildren(
     topo({
       titulo: 'Freedom Fiscal',
@@ -46,15 +52,18 @@ async function inicio() {
     temChave ? null : aviso(h('span', {}, 'Cadastre a chave da API do Tributei para começar. ', h('a', { href: '#/config', style: { color: 'inherit', fontWeight: 700 } }, 'Abrir configurações')), 'atencao'),
     card(
       h('div', { class: 'rotulo' }, 'Integração Tributei'),
-      h('div', { class: 'grande' }, temChave ? 'Conectado' : 'Sem chave'),
-      h('div', { class: 'heroi' }, h('div', { class: 'linha' }, 'Simulação de ICMS-ST, conferência de notas, guias e relatórios em um só lugar.'),
+      h('div', { class: 'grande' }, !temChave ? 'Sem chave' : liberados === null ? 'Conectado' : `${liberados} de ${RECURSOS.length} recursos`),
+      h('div', { class: 'heroi' }, h('div', { class: 'linha' }, !temChave ? 'Sem a chave, a calculadora usa a tabela de MVA da ficha.' : liberados === null ? 'Verificando o que a sua chave libera…' : 'liberados pela sua chave. O que não estiver liberado fica cinza abaixo.'),
         h('div', { class: 'chips' }, temChave ? chip('✓ Chave cadastrada', 'ok') : chip('! Falta a chave', 'atencao'), chip(`Ano ${c.ano}`), chip(`MT: ${({ mva_original_one: 'art. 1º', mva_original_two_a: 'art. 2º-A', mva_original_two_b: 'art. 2º-B' })[c.regraMT]}`)))
     ),
     rotulo('Ferramentas'),
-    h('div', { class: 'modulos' }, TELAS.map((t, i) => h('button', { class: 'modulo', onclick: () => (location.hash = '#/' + t.id) },
-      h('div', { class: 'ic', style: { background: `var(--${t.cor}-s)`, color: `var(--${t.cor}-t)` }, html: icone(t.icone) }),
-      h('div', {}, h('b', {}, `${i + 1}. ${t.titulo}`), h('span', {}, t.resumo)),
-      h('div', { class: 'seta' }, '›')))),
+    h('div', { class: 'modulos' }, TELAS.map((t, i) => {
+      const lib = ferramentaLiberada(t.id);
+      return h('button', { class: 'modulo' + (lib === false ? ' travado' : ''), onclick: () => (location.hash = '#/' + t.id) },
+        h('div', { class: 'ic', style: { background: `var(--${t.cor}-s)`, color: `var(--${t.cor}-t)` }, html: icone(t.icone) }),
+        h('div', {}, h('b', {}, `${i + 1}. ${t.titulo}`), h('span', {}, lib === false ? 'Sua chave ainda não libera esta ferramenta' : t.resumo)),
+        lib === false ? chip('bloqueado', 'mini') : h('div', { class: 'seta' }, '›'));
+    })),
     h('div', { class: 'rodape' }, `Freedom Tech · Freedom Fiscal v${APP_VERSAO} · dados do Tributei`)
   );
 }
@@ -69,6 +78,9 @@ async function rota() {
   const corpo = h('main', {});
   const extras = [];
   app.replaceChildren(topo({ titulo: tela.titulo, sub: tela.subtitulo, voltar: true, extras }), corpo);
+  if (ferramentaLiberada(tela.id) === false) {
+    corpo.append(aviso(h('span', {}, 'Sua chave do Tributei ainda não libera esta ferramenta. Quando liberar, vá em ', h('a', { href: '#/config', style: { color: 'inherit', fontWeight: 700 } }, 'Configurações'), ' › Verificar acessos.'), 'atencao'));
+  }
   try { await tela.render(corpo, { topo: app.firstChild }); }
   catch (e) { corpo.replaceChildren(aviso('Erro ao abrir a tela: ' + e.message, 'erro')); console.error(e); }
 }
@@ -106,4 +118,9 @@ setInterval(checarControle, 15 * 60 * 1000);
   app.replaceChildren(h('div', { class: 'carregando', style: { justifyContent: 'center', paddingTop: '40vh' } }, h('i', { class: 'spin' }), 'Abrindo…'));
   await checarControle();
   if (!bloqueio) rota();
+  // Descobre sozinho o que a chave libera (na 1ª vez e depois a cada 7 dias)
+  const ac = dados.acessos();
+  if (!bloqueio && (await chave.ler()) && (!ac || Date.now() - new Date(ac.quando) > 7 * 864e5)) {
+    try { await verificarAcessos(); if (!location.hash || location.hash === '#/') rota(); } catch {}
+  }
 })();

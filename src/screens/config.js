@@ -4,6 +4,8 @@ import { api } from '../api.js';
 import { UFS, CST_SISTEMA_PADRAO, PRODUTOS_PADRAO } from '../data.js';
 import { listas } from '../extrair.js';
 import { aplicarTema } from '../main.js';
+import { RECURSOS, verificarAcessos } from '../acessos.js';
+import { dataHora } from '../ui.js';
 
 export default {
   id: 'config',
@@ -18,6 +20,24 @@ export default {
     const inMT = select([['mva_original_two_b', 'Art. 2º-B · Demais'], ['mva_original_two_a', 'Art. 2º-A · Atacadista'], ['mva_original_one', 'Art. 1º · Simples / créd. outorgado']], c.regraMT);
     const inTema = select([['auto', 'Automático'], ['claro', 'Claro'], ['escuro', 'Escuro']], c.tema);
     const resTeste = h('div');
+    const painelAcessos = h('div');
+    const desenharAcessos = (a) => {
+      if (!a) { painelAcessos.replaceChildren(h('p', { class: 'muted' }, 'Ainda não verificado.')); return; }
+      const ic = (ok) => ok === true ? ['ok', '✓'] : ok === false ? ['erro', '✕'] : ['atencao', '?'];
+      painelAcessos.replaceChildren(
+        h('p', { class: 'muted' }, `Verificado em ${dataHora(new Date(a.quando))}`),
+        h('div', { class: 'lista' }, RECURSOS.map(r => { const x = a.r[r.id] || {}; const [cls, s] = ic(x.ok);
+          return h('div', { class: 'it' }, h('div', { class: 'ic ' + cls }, s), h('div', {}, h('b', {}, r.nome), h('span', {}, `${r.desc} · ${x.msg || '—'}${x.status ? ' (' + x.status + ')' : ''}`))); })));
+    };
+    const verificarAgora = async () => {
+      await chave.salvar(inChave.value);
+      if (!inChave.value.trim()) return toast('Cole a chave primeiro', 'erro');
+      const prog = carregando('Testando…'); painelAcessos.replaceChildren(prog);
+      const a = await verificarAcessos((r) => (prog.lastChild.textContent = `Testando ${r.nome}…`));
+      desenharAcessos(a);
+      const n = RECURSOS.filter(r => a.r[r.id]?.ok).length;
+      toast(`${n} de ${RECURSOS.length} recursos liberados`, n ? 'ok' : 'erro');
+    };
 
     const salvar = async () => {
       await chave.salvar(inChave.value);
@@ -39,13 +59,18 @@ export default {
       } catch (e) { mostrarErro(resTeste, e); }
     };
 
+    desenharAcessos(dados.acessos());
     el.append(
       card(h('h2', {}, 'Chave da API do Tributei'),
         h('p', { class: 'desc' }, 'No Tributei: Perfil › Integração › copie a API Key. No PC ela fica guardada criptografada pelo Windows; no celular, só dentro do app.'),
         campo('API Key', inChave),
         h('label', { class: 'check', style: { marginTop: '10px' } }, h('input', { type: 'checkbox', onchange: (e) => (inChave.type = e.target.checked ? 'text' : 'password') }), 'Mostrar chave'),
-        h('div', { class: 'acoes' }, botao('Salvar', salvar), botao('Testar conexão', testar, 'secundario')),
+        h('div', { class: 'acoes' }, botao('Salvar', salvar), botao('Testar e verificar acessos', verificarAgora, 'secundario')),
         resTeste),
+      card(h('h2', {}, 'O que a sua chave libera'),
+        h('p', { class: 'desc' }, 'O app testa cada recurso da API com uma chamada que não salva nada e libera só as ferramentas que funcionam. Rode de novo quando o Tributei ampliar a sua chave.'),
+        painelAcessos,
+        h('div', { class: 'acoes' }, botao('Verificar acessos', verificarAgora, 'secundario'))),
       card(h('h2', {}, 'Empresa'),
         h('p', { class: 'desc' }, 'Usado nas guias, notas e relatórios (o Tributei pede o CNPJ sem pontos).'),
         h('div', { class: 'campos' },

@@ -23,6 +23,10 @@ export const dados = {
     const txt = JSON.stringify(s.brutos || []);
     gravar('ultimaSimulacao', txt.length > 400000 ? { ...s, brutos: [{ aviso: 'Resposta grande demais para guardar; rode a simulação de novo para ver.' }] } : s);
   },
+  acessos: () => ler('acessos', null),
+  salvarAcessos: (a) => gravar('acessos', a),
+  calculos: () => ler('calculos', []),
+  registrarCalculo: (c) => gravar('calculos', [c, ...ler('calculos', [])].slice(0, 15)),
   historico: () => ler('historico', []),
   registrar: (item) => { const h = [item, ...ler('historico', [])].slice(0, 30); gravar('historico', h); }
 };

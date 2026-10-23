@@ -66,3 +66,7 @@ export const PRODUTOS_PADRAO = PROD_TXT.split('\n').map(l => {
 export const TIPOS_GUIA = ['G-ICMS-ST', 'G-DIFAL', 'CTE-ST', 'CTE-DIFAL'];
 export const STATUS_GUIA_ENTRADA = ['Pendentes', 'Geradas', 'Rejeitadas', 'Arquivadas'];
 export const STATUS_GUIA_SAIDA = ['Pendentes', 'Geradas', 'Pagas', 'Rejeitadas', 'Arquivadas'];
+
+// Formatos que a API espera: NCM 0000.00.00 e CEST 00.000.00
+export const fmtNcm = (v) => { const d = soDigitos(v).padEnd(8, '0').slice(0, 8); return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}`; };
+export const fmtCest = (v) => { const d = soDigitos(v); return d.length === 7 ? `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 7)}` : (v || ''); };
