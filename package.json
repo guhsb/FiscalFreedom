@@ -18,18 +18,18 @@
     "@capacitor/android": "6.2.0",
     "@capacitor/core": "6.2.0",
     "@capacitor/filesystem": "6.0.2",
-    "@capacitor/share": "6.0.3",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
-    "pdfjs-dist": "^3.11.174",
-    "xlsx": "0.18.5"
+    "@capacitor/share": "6.0.3"
   },
   "devDependencies": {
     "@capacitor/assets": "3.0.5",
     "@capacitor/cli": "6.2.0",
     "electron": "33.2.1",
     "electron-builder": "25.1.8",
-    "vite": "5.4.11"
+    "vite": "5.4.11",
+    "xlsx": "0.18.5",
+    "pdfjs-dist": "^3.11.174",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2"
   },
   "build": {
     "appId": "br.com.cbfreedom.fiscal",
@@ -41,7 +41,8 @@
     "files": [
       "dist/**",
       "electron/**",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*"
     ],
     "win": {
       "target": [
@@ -57,6 +58,9 @@
     },
     "portable": {
       "artifactName": "FreedomFiscal-portatil-${version}.exe"
-    }
+    },
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "publish": null
   }
 }
