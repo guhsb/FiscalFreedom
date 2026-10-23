@@ -1,7 +1,0 @@
-{
-  "appId": "br.com.cbfreedom.fiscal",
-  "appName": "Freedom Fiscal",
-  "webDir": "dist",
-  "android": { "allowMixedContent": false },
-  "plugins": { "CapacitorHttp": { "enabled": true } }
-}
